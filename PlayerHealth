@@ -1,0 +1,84 @@
+using UnityEngine;
+using UnityEngine.UI;
+
+public class PlayerHealth : MonoBehaviour
+{
+    [Header("Health")]
+    public int maxHealth = 100;
+    public int currentHealth;
+
+    [Header("UI")]
+    public Slider healthSlider;      // 体力バー
+    public Image damageOverlay;      // 被弾時UI 이미지
+
+    [Header("Damage Flash")]
+    [Range(0f, 1f)]
+    public float flashAlpha = 0.45f; // 맞았을 때 얼마나 진하게 보일지
+    public float fadeSpeed = 3.5f;   // 얼마나 빨리 사라질지
+
+    private float currentOverlayAlpha = 0f;
+
+    void Start()
+    {
+        currentHealth = maxHealth;
+        UpdateHealthUI();
+        SetOverlayAlpha(0f);
+    }
+
+    void Update()
+    {
+        FadeDamageOverlay();
+    }
+
+    public void TakeDamage(int amount)
+    {
+        currentHealth -= amount;
+        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+
+        UpdateHealthUI();
+        ShowDamageFlash();
+
+        if (currentHealth <= 0)
+        {
+            Die();
+        }
+    }
+
+    void UpdateHealthUI()
+    {
+        if (healthSlider != null)
+        {
+            healthSlider.maxValue = maxHealth;
+            healthSlider.value = currentHealth;
+        }
+    }
+
+    void ShowDamageFlash()
+    {
+        currentOverlayAlpha = flashAlpha;
+        SetOverlayAlpha(currentOverlayAlpha);
+    }
+
+    void FadeDamageOverlay()
+    {
+        if (damageOverlay == null) return;
+
+        currentOverlayAlpha = Mathf.MoveTowards(currentOverlayAlpha, 0f, fadeSpeed * Time.deltaTime);
+        SetOverlayAlpha(currentOverlayAlpha);
+    }
+
+    void SetOverlayAlpha(float alpha)
+    {
+        if (damageOverlay == null) return;
+
+        Color c = damageOverlay.color;
+        c.a = alpha;
+        damageOverlay.color = c;
+    }
+
+    void Die()
+    {
+        Debug.Log("Player Dead");
+      
+    }
+}
