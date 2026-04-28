@@ -1,0 +1,156 @@
+using System.Collections;
+using UnityEngine;
+
+public class EnemyChaseAttack : MonoBehaviour
+{
+    [Header("References")]
+    public Transform player;
+    public PlayerHealth playerHealth;
+
+    [Header("Detection / Chase")]
+    public float detectionRadius = 15f;   // この範囲に入らないと追跡開始
+    public float moveSpeed = 3f;
+    public float stopDistance = 0.7f;    // 近すぎると歩くのを止める
+
+    [Header("Attack")]
+    public float attackDistance = 1.8f;  // この距離以内なら攻撃を試みる
+    public int attackDamage = 10;
+    public float attackCooldown = 1.2f;
+
+    [Header("Body Slam Motion")]
+    public float lungeDistance = 1.0f;   // どれだけ前に突っ込んでくるのか
+    public float lungeDuration = 0.12f;  // 襲いかかる速度
+    public float returnDuration = 0.10f; // ウォン位置復帰速度
+    public float hitCheckRadius = 1.6f;  // 攻撃成功判定 距離
+
+    private bool isAttacking = false;
+    private float lastAttackTime = -999f;
+
+    void Start()
+    {
+        // player を直接指定しなければ「Player」タグで自動検索
+        if (player == null)
+        {
+            GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+            if (playerObj != null)
+            {
+                player = playerObj.transform;
+            }
+        }
+
+        if (player != null && playerHealth == null)
+        {
+            playerHealth = player.GetComponent<PlayerHealth>();
+        }
+    }
+
+    void Update()
+    {
+        if (player == null || isAttacking) return;
+
+        float distance = Vector3.Distance(transform.position, player.position);
+
+        // 반응 범위 밖이면 아무것도 안 함
+        if (distance > detectionRadius) return;
+
+        LookAtPlayer();
+
+        // 공격 가능 거리면 몸통박치기
+        if (distance <= attackDistance && Time.time >= lastAttackTime + attackCooldown)
+        {
+            StartCoroutine(BodySlamAttack());
+            return;
+        }
+
+        // 공격 거리는 아니지만, 아직 멀면 추적
+        if (distance > stopDistance)
+        {
+            ChasePlayer();
+        }
+    }
+
+    void ChasePlayer()
+    {
+        Vector3 direction = player.position - transform.position;
+        direction.y = 0f; // 위아래 차이는 무시하고 수평으로만 이동
+
+        if (direction.sqrMagnitude < 0.001f) return;
+
+        direction.Normalize();
+        transform.position += direction * moveSpeed * Time.deltaTime;
+    }
+
+    void LookAtPlayer()
+    {
+        Vector3 lookTarget = new Vector3(player.position.x, transform.position.y, player.position.z);
+        transform.LookAt(lookTarget);
+    }
+
+    IEnumerator BodySlamAttack()
+    {
+        isAttacking = true;
+        lastAttackTime = Time.time;
+
+        // 공격 시작 전에 플레이어 방향 다시 확인
+        LookAtPlayer();
+
+        Vector3 startPos = transform.position;
+
+        Vector3 attackDir = player.position - transform.position;
+        attackDir.y = 0f;
+        attackDir = attackDir.normalized;
+
+        if (attackDir.sqrMagnitude < 0.001f)
+        {
+            isAttacking = false;
+            yield break;
+        }
+
+        Vector3 attackPos = startPos + attackDir * lungeDistance;
+
+        // 앞으로 들이받기
+        float timer = 0f;
+        while (timer < lungeDuration)
+        {
+            timer += Time.deltaTime;
+            float t = timer / lungeDuration;
+            transform.position = Vector3.Lerp(startPos, attackPos, t);
+            yield return null;
+        }
+
+        // 공격 성공 판정
+        if (player != null && playerHealth != null)
+        {
+            float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+            if (distanceToPlayer <= hitCheckRadius)
+            {
+                playerHealth.TakeDamage(attackDamage);
+            }
+        }
+
+        // 잠깐 멈췄다가
+        yield return new WaitForSeconds(0.05f);
+
+        // 원위치로 돌아가기
+        timer = 0f;
+        while (timer < returnDuration)
+        {
+            timer += Time.deltaTime;
+            float t = timer / returnDuration;
+            transform.position = Vector3.Lerp(attackPos, startPos, t);
+            yield return null;
+        }
+
+        isAttacking = false;
+    }
+
+    // 씬에서 범위 확인용
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, detectionRadius);
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackDistance);
+    }
+}
