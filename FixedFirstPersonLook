@@ -1,0 +1,45 @@
+using UnityEngine;
+
+public class FixedFirstPersonLook : MonoBehaviour
+{
+    [Header("References")]
+    public Transform cameraTransform;
+
+    [Header("Look Settings")]
+    public float mouseSensitivity = 120f;
+    public float minPitch = -80f;
+    public float maxPitch = 80f;
+
+    private float pitch = 0f;
+
+    void Start()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        if (cameraTransform == null)
+        {
+            cameraTransform = Camera.main.transform;
+        }
+    }
+
+    void Update()
+    {
+        Look();
+    }
+
+    void Look()
+    {
+        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
+        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
+
+        // 좌우 회전 (플레이어 본체)
+        transform.Rotate(0f, mouseX, 0f);
+
+        // 위아래 회전 (카메라)
+        pitch -= mouseY;
+        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+
+        cameraTransform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+    }
+}
